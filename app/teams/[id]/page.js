@@ -1,9 +1,13 @@
 "use client";
 
 // Task board for one team: To do, In progress, Done.
+// Below the board: progress chart, AI personal analysis (learners) and the mentor's final feedback.
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import FinalFeedback from "@/components/FinalFeedback";
+import PersonalAnalysis from "@/components/PersonalAnalysis";
+import ProgressPanel from "@/components/ProgressPanel";
 import { useUser } from "@/components/UserProvider";
 import { getProject, getTasks, getTeam, updateTask } from "@/lib/db";
 
@@ -16,7 +20,7 @@ const ORDER = COLUMNS.map((c) => c.status);
 
 export default function TeamPage() {
   const { id } = useParams();
-  const { currentUser, userName } = useUser();
+  const { currentUser, isMentor, userName } = useUser();
   const [team, setTeam] = useState(undefined);
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -52,7 +56,8 @@ export default function TeamPage() {
   if (team === undefined) return <p className="muted">Loading…</p>;
   if (team === null) return <p>Team not found.</p>;
 
-  const isMember = currentUser && team.memberIds.includes(currentUser.id);
+  const isMember = Boolean(currentUser && !isMentor && team.memberIds.includes(currentUser.id));
+  const isProjectMentor = Boolean(isMentor && project && project.mentorId === currentUser.id);
   const doneCount = tasks.filter((t) => t.status === "done").length;
 
   return (
@@ -66,7 +71,8 @@ export default function TeamPage() {
           <div className="eyebrow">{project?.field}</div>
           <h1>{project?.title}</h1>
           <p className="muted small">
-            Team: {team.memberIds.map(userName).join(", ")} · {doneCount} of {tasks.length} tasks done
+            Team: {team.memberIds.map(userName).join(", ")} · {doneCount} of {tasks.length} tasks done ·{" "}
+            {team.status}
           </p>
         </div>
         <Link href={`/projects/${team.projectId}`} className="btn btn-ghost">
@@ -74,7 +80,15 @@ export default function TeamPage() {
         </Link>
       </div>
 
-      {!isMember && (
+      {isProjectMentor && (
+        <p className="card muted">
+          You are this project&apos;s mentor. Learners appear by anonymous name, so you judge the work, not the person.
+        </p>
+      )}
+      {isMentor && !isProjectMentor && (
+        <p className="card muted">You are viewing another mentor&apos;s project (read only).</p>
+      )}
+      {!isMentor && !isMember && (
         <p className="card muted">
           You are not in this team. Switch learner in the header or join the project to take part.
         </p>
@@ -127,6 +141,18 @@ export default function TeamPage() {
           );
         })}
       </div>
+
+      <ProgressPanel project={project} tasks={tasks} teamId={team.id} />
+
+      {isMember && <PersonalAnalysis team={team} project={project} tasks={tasks} currentUser={currentUser} />}
+
+      <FinalFeedback
+        team={team}
+        project={project}
+        tasks={tasks}
+        canGive={isProjectMentor}
+        onSaved={() => getTeam(id).then(setTeam)}
+      />
     </div>
   );
 }

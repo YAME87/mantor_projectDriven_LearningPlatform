@@ -5,15 +5,16 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useUser } from "@/components/UserProvider";
-import { getProject, getTeamsForUser, getUser, joinProject } from "@/lib/db";
+import { getProject, getTeamsForProject, getTeamsForUser, getUser, joinProject } from "@/lib/db";
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { currentUser } = useUser();
+  const { currentUser, isMentor, userName } = useUser();
   const [project, setProject] = useState(undefined);
   const [mentor, setMentor] = useState(null);
   const [myTeam, setMyTeam] = useState(null);
+  const [projectTeams, setProjectTeams] = useState([]);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState("");
 
@@ -25,11 +26,18 @@ export default function ProjectDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || isMentor) {
+      setMyTeam(null);
+      return;
+    }
     getTeamsForUser(currentUser.id).then((teams) =>
       setMyTeam(teams.find((t) => t.projectId === id) || null)
     );
-  }, [currentUser, id]);
+  }, [currentUser, isMentor, id]);
+
+  useEffect(() => {
+    getTeamsForProject(id).then(setProjectTeams);
+  }, [id]);
 
   async function handleJoin() {
     setJoining(true);
@@ -45,6 +53,8 @@ export default function ProjectDetailPage() {
 
   if (project === undefined) return <p className="muted">Loading…</p>;
   if (project === null) return <p>Project not found.</p>;
+
+  const isProjectMentor = Boolean(isMentor && currentUser && project.mentorId === currentUser.id);
 
   return (
     <div>
@@ -89,6 +99,26 @@ export default function ProjectDetailPage() {
               ))}
             </ol>
           </section>
+
+          {isProjectMentor && (
+            <section className="card">
+              <h2>Teams on your project</h2>
+              {projectTeams.length === 0 ? (
+                <p className="muted small">No team has joined yet.</p>
+              ) : (
+                <ul className="list-plain">
+                  {projectTeams.map((t) => (
+                    <li key={t.id}>
+                      <Link href={`/teams/${t.id}`}>
+                        {t.memberIds.map(userName).join(", ")}
+                      </Link>
+                      <span className="muted small"> · {t.status}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
         </div>
 
         <aside className="card stack">
@@ -101,7 +131,13 @@ export default function ProjectDetailPage() {
             <div className="eyebrow">Team size</div>
             {project.teamSize} learners
           </div>
-          {myTeam ? (
+          {isMentor ? (
+            <p className="muted small">
+              {isProjectMentor
+                ? "This is your project. Open a team to guide it and give final feedback."
+                : "You are viewing as a mentor. Only learners can join projects."}
+            </p>
+          ) : myTeam ? (
             <Link href={`/teams/${myTeam.id}`} className="btn">
               Go to my team
             </Link>

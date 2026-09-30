@@ -4,14 +4,16 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import CommentThread from "@/components/CommentThread";
 import ContributionForm from "@/components/ContributionForm";
 import FeedbackPanel from "@/components/FeedbackPanel";
 import { useUser } from "@/components/UserProvider";
+import { MAX_SUBMISSION_CHARS } from "@/lib/config";
 import { getContributions, getProject, getTask, getTeam, submitTask } from "@/lib/db";
 
 export default function TaskPage() {
   const { id: teamId, taskId } = useParams();
-  const { currentUser, userName } = useUser();
+  const { currentUser, isMentor, userName } = useUser();
   const [team, setTeam] = useState(null);
   const [project, setProject] = useState(null);
   const [task, setTask] = useState(undefined);
@@ -53,7 +55,8 @@ export default function TaskPage() {
   if (task === undefined) return <p className="muted">Loading…</p>;
   if (task === null) return <p>Task not found.</p>;
 
-  const isMember = currentUser && team?.memberIds.includes(currentUser.id);
+  const isMember = Boolean(currentUser && !isMentor && team?.memberIds.includes(currentUser.id));
+  const isProjectMentor = Boolean(isMentor && project && project.mentorId === currentUser.id);
   const criteria = (project?.criteria || []).filter((c) => task.criteriaIds.includes(c.id));
 
   return (
@@ -94,14 +97,18 @@ export default function TaskPage() {
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="Write your team's work here, or paste a link (Figma, Google Doc, GitHub)."
+                maxLength={MAX_SUBMISSION_CHARS}
                 disabled={!isMember}
                 aria-label="Submission"
               />
               {isMember && (
-                <div>
+                <div className="row">
                   <button className="btn" disabled={saving || !draft.trim()}>
                     {saving ? "Saving…" : task.submission ? "Update submission" : "Submit work"}
                   </button>
+                  <span className="muted small">
+                    {draft.length} / {MAX_SUBMISSION_CHARS}
+                  </span>
                 </div>
               )}
             </form>
@@ -114,6 +121,8 @@ export default function TaskPage() {
             contributions={contributions}
             canRequest={isMember}
           />
+
+          <CommentThread taskId={taskId} teamId={teamId} canPost={isMember || isProjectMentor} />
         </div>
 
         <aside className="card">

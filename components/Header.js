@@ -2,19 +2,31 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { APP_NAME } from "@/lib/config";
 import { isFirebaseEnabled } from "@/lib/db";
 import { useUser } from "./UserProvider";
 
-const NAV = [
-  { href: "/", label: "Home" },
-  { href: "/projects", label: "Projects" },
-];
-
 export default function Header() {
   const pathname = usePathname();
-  const { users, currentUser, switchUser } = useUser();
+  const { users, currentUser, isMentor, switchUser } = useUser();
   const learners = users.filter((u) => u.role === "learner");
+  const mentors = users.filter((u) => u.role === "mentor");
+
+  // Is real AI switched on (an API key exists on the server) or simulated?
+  const [ai, setAi] = useState(null);
+  useEffect(() => {
+    fetch("/api/status")
+      .then((res) => res.json())
+      .then((data) => setAi(Boolean(data.ai)))
+      .catch(() => setAi(false));
+  }, []);
+
+  const nav = [
+    { href: "/", label: "Home" },
+    ...(isMentor ? [] : [{ href: "/assessment", label: "Assessment" }]),
+    { href: "/projects", label: "Projects" },
+  ];
 
   return (
     <header className="header">
@@ -23,7 +35,7 @@ export default function Header() {
           {APP_NAME}
         </Link>
         <nav className="nav">
-          {NAV.map((item) => {
+          {nav.map((item) => {
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             return (
               <Link key={item.href} href={item.href} className={active ? "nav-link active" : "nav-link"}>
@@ -33,6 +45,12 @@ export default function Header() {
           })}
         </nav>
         <div className="header-right">
+          {isMentor && <span className="badge badge-blue">Mentor view · learner names hidden</span>}
+          {ai !== null && (
+            <span className={ai ? "badge badge-green" : "badge badge-amber"}>
+              {ai ? "AI: Live" : "AI: Simulated"}
+            </span>
+          )}
           <span className={isFirebaseEnabled ? "badge badge-green" : "badge badge-amber"}>
             {isFirebaseEnabled ? "Firebase" : "Demo data"}
           </span>
@@ -41,13 +59,23 @@ export default function Header() {
             <select
               value={currentUser?.id || ""}
               onChange={(e) => switchUser(e.target.value)}
-              aria-label="Switch demo learner"
+              aria-label="Switch demo user"
             >
-              {learners.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
+              {/* In mentor view even this demo switch shows anonymous names, so no real name is ever on screen. */}
+              <optgroup label="Learners">
+                {learners.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {isMentor ? u.anonymousName : u.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Mentors">
+                {mentors.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} (mentor)
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </label>
         </div>
