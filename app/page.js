@@ -4,6 +4,7 @@
 // Mentors see their projects and the teams working on them (learners shown by anonymous name).
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import Hero from "@/components/Hero";
 import { useUser } from "@/components/UserProvider";
 import {
   getProject,
@@ -169,10 +170,16 @@ function MentorHome({ currentUser, userName }) {
 
 export default function HomePage() {
   const { currentUser, isMentor, userName } = useUser();
-  if (!currentUser) return <p className="muted">Loading…</p>;
-  return isMentor ? (
-    <MentorHome currentUser={currentUser} userName={userName} />
-  ) : (
-    <LearnerHome currentUser={currentUser} />
+  return (
+    <>
+      <Hero />
+      {!currentUser ? (
+        <p className="muted">Loading…</p>
+      ) : isMentor ? (
+        <MentorHome currentUser={currentUser} userName={userName} />
+      ) : (
+        <LearnerHome currentUser={currentUser} />
+      )}
+    </>
   );
 }

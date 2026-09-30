@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import { APP_NAME } from "@/lib/config";
-import { isFirebaseEnabled } from "@/lib/db";
 import { useUser } from "./UserProvider";
 
 export default function Header() {
@@ -12,15 +10,6 @@ export default function Header() {
   const { users, currentUser, isMentor, switchUser } = useUser();
   const learners = users.filter((u) => u.role === "learner");
   const mentors = users.filter((u) => u.role === "mentor");
-
-  // Is real AI switched on (an API key exists on the server) or simulated?
-  const [ai, setAi] = useState(null);
-  useEffect(() => {
-    fetch("/api/status")
-      .then((res) => res.json())
-      .then((data) => setAi(Boolean(data.ai)))
-      .catch(() => setAi(false));
-  }, []);
 
   const nav = [
     { href: "/", label: "Home" },
@@ -31,7 +20,8 @@ export default function Header() {
   return (
     <header className="header">
       <div className="container header-inner">
-        <Link href="/" className="logo">
+        {/* The home hero already shows the big wordmark, so the header logo steps aside there. */}
+        <Link href="/" className={pathname === "/" ? "logo logo-hidden" : "logo"}>
           {APP_NAME}
         </Link>
         <nav className="nav">
@@ -46,14 +36,6 @@ export default function Header() {
         </nav>
         <div className="header-right">
           {isMentor && <span className="badge badge-blue">Mentor view · learner names hidden</span>}
-          {ai !== null && (
-            <span className={ai ? "badge badge-green" : "badge badge-amber"}>
-              {ai ? "AI: Live" : "AI: Simulated"}
-            </span>
-          )}
-          <span className={isFirebaseEnabled ? "badge badge-green" : "badge badge-amber"}>
-            {isFirebaseEnabled ? "Firebase" : "Demo data"}
-          </span>
           <label className="user-switch">
             <span className="muted small">Viewing as</span>
             <select
